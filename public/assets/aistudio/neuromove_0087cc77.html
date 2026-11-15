@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NeuroMove AI 3D — Offline Neuro-Rehabilitation & Boss Flight Simulator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #050814; color: #eef6ff;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    #game-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 1; }
+
+    .nebula { position: fixed; top: 0; bottom: 0; width: 32vw; pointer-events: none; z-index: 2; }
+    #neb-left { left: 0; background: radial-gradient(circle at 0% 50%, rgba(185, 43, 255, 0.36) 0%, rgba(255, 42, 133, 0.14) 45%, transparent 75%); }
+    #neb-right { right: 0; background: radial-gradient(circle at 100% 50%, rgba(0, 240, 255, 0.34) 0%, rgba(0, 128, 255, 0.14) 45%, transparent 75%); }
+
+    .fx { position: fixed; inset: 0; pointer-events: none; z-index: 3; opacity: 0; transition: opacity 0.15s; }
+    #fx-dmg { background: radial-gradient(circle, transparent 35%, rgba(255, 35, 65, 0.55) 100%); }
+    #fx-heal { background: radial-gradient(circle, transparent 45%, rgba(255, 209, 59, 0.4) 100%); }
+    #fx-hyper { background: radial-gradient(circle, transparent 50%, rgba(0, 240, 255, 0.25) 100%); }
+
+    .panel {
+      background: rgba(10, 16, 36, 0.90);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    }
+
+    #hud {
+      position: fixed; inset: 0; z-index: 10; pointer-events: none;
+      padding: 14px 18px; display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .hud-top {
+      display: grid; grid-template-columns: 240px 1fr 245px; gap: 14px; align-items: start;
+    }
+    .hud-top > * { pointer-events: auto; }
+
+    .box { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+    .lbl { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8ea8cc; }
+    .val { font-size: 1.5rem; font-weight: 800; line-height: 1.1; color: #eef6ff; }
+
+    .btn {
+      border: 1px solid rgba(0, 240, 255, 0.6); background: rgba(0, 240, 255, 0.15);
+      color: #eef6ff; font-size: 0.74rem; font-weight: 700; padding: 6px 11px;
+      border-radius: 9px; cursor: pointer; white-space: nowrap;
+    }
+    .btn:hover:not(:disabled) { background: #00f0ff; color: #04101f; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-stop { border-color: #ff3355; background: rgba(255,51,85,0.25); color: #ff7a92; }
+    .btn-stop:hover:not(:disabled) { background: #ff3355 !important; color: #fff !important; }
+
+    .pip { position: relative; width: 100%; aspect-ratio: 4/3; border-radius: 10px; overflow: hidden; background: #000; border: 1px solid rgba(0,240,255,0.3); }
+    #webcam-preview { width: 100%; height: 100%; display: block; object-fit: cover; }
+    .pip-off { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 8px; gap: 4px; font-size: 0.72rem; color: #8ea8cc; }
+    .hidden { display: none !important; }
+
+    /* Boss Bar & Tutorial Banner */
+    .stage-banner {
+      position: fixed; top: 132px; left: 50%; transform: translateX(-50%); z-index: 14; pointer-events: none;
+      width: min(520px, 90vw); padding: 10px 18px; border-radius: 14px;
+      background: rgba(8, 13, 30, 0.94); border: 1px solid #00f0ff;
+      text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+      transition: opacity 0.25s ease;
+    }
+    .boss-bar-wrap { border-color: #ff3355; box-shadow: 0 0 25px rgba(255, 51, 85, 0.35); }
+    .boss-track { width: 100%; height: 10px; background: rgba(255,255,255,0.12); border-radius: 99px; overflow: hidden; margin-top: 6px; }
+    .boss-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff2a85, #ff3355); transition: width 0.2s ease; }
+
+    #float-layer { position: fixed; inset: 0; pointer-events: none; z-index: 15; overflow: hidden; }
+    .float-msg {
+      position: absolute; font-weight: 800; font-size: 1.05rem;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8); transform: translate(-50%, -50%);
+      animation: floatUp 0.8s ease-out forwards; white-space: nowrap;
+    }
+    @keyframes floatUp {
+      0% { opacity: 0; transform: translate(-50%, -25%) scale(0.8); }
+      20% { opacity: 1; transform: translate(-50%, -55%) scale(1.05); }
+      100% { opacity: 0; transform: translate(-50%, -135%) scale(0.95); }
+    }
+
+    .modal {
+      position: fixed; inset: 0; z-index: 50; background: rgba(3, 6, 18, 0.90);
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .card {
+      width: 100%; max-width: 740px; max-height: 92vh; overflow-y: auto;
+      background: rgba(8, 13, 30, 0.98); border: 1px solid rgba(0, 240, 255, 0.6);
+      border-radius: 20px; padding: 26px; display: flex; flex-direction: column; gap: 16px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.85);
+    }
+    .title { font-size: 1.8rem; font-weight: 900; color: #00f0ff; }
+    .sub { font-size: 0.9rem; color: #8ea8cc; line-height: 1.4; }
+
+    .diff-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .diff-btn {
+      border: 1px solid rgba(0,240,255,0.3); background: rgba(0,240,255,0.08);
+      color: #eef6ff; border-radius: 12px; padding: 11px 8px; cursor: pointer; text-align: center;
+    }
+    .diff-btn.active { border-color: #00f0ff; background: rgba(0,240,255,0.28); box-shadow: 0 0 12px rgba(0,240,255,0.4); }
+    .diff-btn .dn { font-weight: 800; font-size: 0.85rem; display: block; }
+    .diff-btn .ds { font-size: 0.66rem; color: #8ea8cc; }
+
+    .mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .btn-launch {
+      border: none; background: linear-gradient(135deg, #00f0ff, #00a8ff); color: #03101e;
+      font-size: 0.95rem; font-weight: 900; padding: 14px 16px; border-radius: 14px; cursor: pointer;
+      box-shadow: 0 8px 24px rgba(0,240,255,0.35); text-align: center;
+    }
+    .btn-launch:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn-tut { background: linear-gradient(135deg, #00f59b, #00c48c); box-shadow: 0 8px 24px rgba(0,245,155,0.3); }
+    .btn-boss { background: linear-gradient(135deg, #ff3355, #ff7a00); color: #fff; box-shadow: 0 8px 24px rgba(255,51,85,0.35); }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+  <div id="neb-left" class="nebula"></div>
+  <div id="neb-right" class="nebula"></div>
+
+  <div id="fx-dmg" class="fx"></div>
+  <div id="fx-heal" class="fx"></div>
+  <div id="fx-hyper" class="fx"></div>
+  <div id="float-layer"></div>
+
+  <!-- Tutorial Prompt Banner -->
+  <div id="tut-banner" class="stage-banner hidden">
+    <div id="tut-step-lbl" style="font-family:monospace; font-size:0.7rem; color:#00f59b; letter-spacing:0.1em;">TUTORIAL • STEP 1 OF 5</div>
+    <div id="tut-msg" style="font-weight:800; font-size:1rem; margin-top:3px;">Tilt or steer LEFT and RIGHT to test lateral control</div>
+  </div>
+
+  <!-- Boss Health Banner -->
+  <div id="boss-banner" class="stage-banner boss-bar-wrap hidden">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-weight:900; font-size:0.86rem; letter-spacing:0.1em; color:#ff4d6a;">BOSS: NEURO-CORE OVERLORD</span>
+      <span id="boss-hp-txt" style="font-family:monospace; font-size:0.8rem; font-weight:800; color:#ffd13b;">100%</span>
+    </div>
+    <div class="boss-track"><div id="boss-hp-bar" class="boss-fill"></div></div>
+    <div style="font-size:0.68rem; color:#8ea8cc; margin-top:4px;">Collect Cyan Energy Orbs to fire counter-beams &amp; dodge Red Plasma!</div>
+  </div>
+
+  <div id="hud">
+    <div class="hud-top">
+      <div class="panel box">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="lbl">Score</span>
+          <span id="diff-badge" style="font-family:monospace; font-size:0.66rem; color:#00f0ff;">MEDIUM (1.0x)</span>
+        </div>
+        <div id="hud-score" class="val">0</div>
+        <div style="display:flex; justify-content:space-between; margin-top:4px;">
+          <span class="lbl">Combo: <b id="hud-combo" style="color:#00f0ff;">1x</b></span>
+          <span class="lbl">Best: <b id="hud-high" style="color:#ffd13b;">0</b></span>
+        </div>
+      </div>
+
+      <div class="panel box" style="align-items:center; justify-content:center; gap:9px;">
+        <div style="width:100%; display:flex; justify-content:space-between;">
+          <span class="lbl">Neural Shield Integrity (100% Offline)</span>
+          <span id="hud-hp" style="font-weight:800; color:#00f59b;">100%</span>
+        </div>
+        <div style="width:100%; height:13px; background:rgba(255,255,255,0.1); border-radius:9px; overflow:hidden;">
+          <div id="hud-hp-bar" style="height:100%; width:100%; background:linear-gradient(90deg, #00c4ff, #00f59b); transition:width 0.2s;"></div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+          <button type="button" id="btn-theme" class="btn" onclick="window.NM.toggleTheme()">🌙 Dark (30s)</button>
+          <button type="button" id="btn-mute" class="btn" onclick="window.NM.toggleMute()">🔊 Audio</button>
+          <button type="button" id="btn-pause" class="btn" disabled onclick="window.NM.togglePause()">⏸ Pause</button>
+          <button type="button" id="btn-stop" class="btn btn-stop" disabled onclick="window.NM.stopRun()">⏹ Stop</button>
+        </div>
+      </div>
+
+      <div class="panel box">
+        <div style="display:flex; justify-content:space-between;">
+          <span class="lbl">Head Tracker</span>
+          <span id="cam-status" style="font-family:monospace; font-size:0.65rem; color:#00f0ff;">STANDBY</span>
+        </div>
+        <div class="pip">
+          <canvas id="webcam-preview" width="240" height="180"></canvas>
+          <div id="pip-off" class="pip-off">
+            <span>Camera Off</span>
+            <span style="font-size:0.62rem;">Enable for mirrored head steering</span>
+          </div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button type="button" id="btn-cam" class="btn" style="flex:1;" onclick="window.NM.toggleCam()">Enable Cam</button>
+          <button type="button" id="btn-rec" class="btn" style="flex:1;" disabled onclick="window.NM.recenter()">Re-Center</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="padding:8px 14px; font-family:monospace; font-size:0.74rem; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+      <span>X-ROM: <b id="live-xrom" style="color:#00f0ff;">0%</b> • Y-ROM: <b id="live-yrom" style="color:#00f0ff;">0%</b> • SYM: <b id="live-sym" style="color:#00f0ff;">100%</b></span>
+      <span>Steer: <b>WASD / Arrows / Mouse / Webcam</b> • Re-Center: <b>C</b> • Stop: <b>Esc</b></span>
+    </div>
+  </div>
+
+  <!-- START MODAL -->
+  <div id="start-modal" class="modal">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+        <div>
+          <div style="font-family:monospace; font-size:0.72rem; color:#00f0ff; letter-spacing:0.1em; text-transform:uppercase;">100% Standalone Offline Simulation</div>
+          <h1 class="title">NeuroMove AI 3D</h1>
+          <p class="sub">Practice in the <strong>Tutorial Level</strong>, fly the standard course, or challenge the <strong>Boss Level</strong> (auto-triggers at 1,500 pts).</p>
+        </div>
+        <button type="button" id="btn-start-cam" class="btn" style="padding:10px 14px;" onclick="window.NM.toggleCam()">Enable Webcam Tracking</button>
+      </div>
+
+      <div>
+        <div class="lbl" style="margin-bottom:6px;">Select Difficulty Mode</div>
+        <div class="diff-grid">
+          <button type="button" class="diff-btn" data-diff="easy" onclick="window.NM.setDiff('easy', this)">
+            <span class="dn" style="color:#00f59b;">EASY</span>
+            <span class="ds">Gentle speed • +25% Heal</span>
+          </button>
+          <button type="button" class="diff-btn active" data-diff="medium" onclick="window.NM.setDiff('medium', this)">
+            <span class="dn" style="color:#00f0ff;">MEDIUM</span>
+            <span class="ds">Balanced • 1.0x Score</span>
+          </button>
+          <button type="button" class="diff-btn" data-diff="hard" onclick="window.NM.setDiff('hard', this)">
+            <span class="dn" style="color:#ffd13b;">HARD</span>
+            <span class="ds">Fast speed • 1.5x Score</span>
+          </button>
+          <button type="button" class="diff-btn" data-diff="extreme" onclick="window.NM.setDiff('extreme', this)">
+            <span class="dn" style="color:#ff3355;">EXTREME</span>
+            <span class="ds">Hyper warp • 2.0x Score</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="mode-grid">
+        <button type="button" class="btn-launch btn-tut" onclick="window.NM.launch('tutorial')">1. TUTORIAL LEVEL</button>
+        <button type="button" class="btn-launch" onclick="window.NM.launch('standard')">2. LAUNCH FLIGHT</button>
+        <button type="button" class="btn-launch btn-boss" onclick="window.NM.launch('boss')">3. BOSS BATTLE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORT MODAL -->
+  <div id="report-modal" class="modal hidden">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h2 class="title">Clinical Rehabilitation Report</h2>
+          <p id="rep-sub" class="sub">Session summary &amp; range-of-motion telemetry:</p>
+        </div>
+        <div style="text-align:center; padding:8px 16px; border:2px solid #00f0ff; border-radius:14px;">
+          <div class="lbl">Rank</div>
+          <div id="rep-rank" style="font-size:2rem; font-weight:900; color:#ffd13b;">A</div>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:8px;">
+        <div class="panel" style="padding:10px;"><div class="lbl">Score</div><div id="rep-score" class="val" style="font-size:1.25rem;">0</div></div>
+        <div class="panel" style="padding:10px;"><div class="lbl">Time</div><div id="rep-time" class="val" style="font-size:1.25rem;">00:00</div></div>
+        <div class="panel" style="padding:10px;"><div class="lbl">X-ROM</div><div id="rep-xrom" class="val" style="font-size:1.25rem;">0%</div></div>
+        <div class="panel" style="padding:10px;"><div class="lbl">Y-ROM</div><div id="rep-yrom" class="val" style="font-size:1.25rem;">0%</div></div>
+        <div class="panel" style="padding:10px;"><div class="lbl">Symmetry</div><div id="rep-sym" class="val" style="font-size:1.25rem;">100%</div></div>
+      </div>
+      <div style="display:flex; gap:10px; justify-content:flex-end;">
+        <button type="button" class="btn" style="padding:12px 18px;" onclick="window.NM.changeDiff()">Main Menu</button>
+        <button type="button" class="btn-launch" onclick="window.NM.launch('standard')">PLAY AGAIN</button>
+      </div>
+    </div>
+  </div>
+
+  <video id="webcam-video" playsinline muted style="display:none;"></video>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const DIFFS = {
+        easy:    { label: 'EASY',    speed: 20, dmg: 10, heal: 25, mult: 0.8, mag: 3.2, rad: 2.0, bossHp: 100 },
+        medium:  { label: 'MEDIUM',  speed: 27, dmg: 15, heal: 20, mult: 1.0, mag: 2.5, rad: 1.75, bossHp: 150 },
+        hard:    { label: 'HARD',    speed: 36, dmg: 22, heal: 15, mult: 1.5, mag: 1.8, rad: 1.5, bossHp: 220 },
+        extreme: { label: 'EXTREME', speed: 46, dmg: 30, heal: 12, mult: 2.0, mag: 1.3, rad: 1.3, bossHp: 300 }
+      };
+
+      let diffKey = 'medium';
+      let isLight = false;
+      let themeTimer = 30;
+      let isMuted = false;
+
+      /* Offline Audio Synth */
+      let audioCtx = null;
+      function playTone(type) {
+        if (isMuted) return;
+        try {
+          if (!audioCtx) {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (AC) audioCtx = new AC();
+          }
+          if (!audioCtx) return;
+          if (audioCtx.state === 'suspended') audioCtx.resume();
+          const now = audioCtx.currentTime;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = type === 'hit' ? 'sawtooth' : (type === 'laser' ? 'square' : 'triangle');
+          osc.frequency.setValueAtTime(type === 'hit' ? 120 : (type === 'laser' ? 880 : (type === 'core' ? 660 : 480)), now);
+          osc.frequency.exponentialRampToValueAtTime(type === 'hit' ? 38 : (type === 'laser' ? 240 : 960), now + 0.22);
+          gain.gain.setValueAtTime(0.14, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+          osc.connect(gain); gain.connect(audioCtx.destination);
+          osc.start(now); osc.stop(now + 0.26);
+        } catch (e) {}
+      }
+
+      /* Mirrored Webcam Head Tracker */
+      const video = document.getElementById('webcam-video');
+      const pipCanvas = document.getElementById('webcam-preview');
+      const pipCtx = pipCanvas.getContext('2d');
+      const procCanvas = document.createElement('canvas');
+      procCanvas.width = 80; procCanvas.height = 60;
+      const procCtx = procCanvas.getContext('2d', { willReadFrequently: true });
+
+      const cam = {
+        active: false, stream: null, sx: 0.5, sy: 0.48, cx: 0.5, cy: 0.48,
+        steerX: 0, steerY: 0, warmup: 0, lastT: -1
+      };
+
+      async function toggleCam() {
+        if (cam.active) {
+          if (cam.stream) cam.stream.getTracks().forEach(t => t.stop());
+          cam.stream = null; cam.active = false; cam.steerX = 0; cam.steerY = 0;
+          document.getElementById('pip-off').classList.remove('hidden');
+          document.getElementById('cam-status').textContent = 'STANDBY';
+          document.getElementById('btn-cam').textContent = 'Enable Cam';
+          document.getElementById('btn-start-cam').textContent = 'Enable Webcam Tracking';
+          document.getElementById('btn-rec').disabled = true;
+          pipCtx.clearRect(0, 0, pipCanvas.width, pipCanvas.height);
+          return;
+        }
+        try {
+          cam.stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, facingMode: 'user' }, audio: false });
+          video.srcObject = cam.stream;
+          await video.play();
+          cam.active = true; cam.warmup = 12; cam.lastT = -1;
+          document.getElementById('pip-off').classList.add('hidden');
+          document.getElementById('cam-status').textContent = 'LOCKED';
+          document.getElementById('btn-cam').textContent = 'Disable Cam';
+          document.getElementById('btn-start-cam').textContent = 'Webcam Active ✓';
+          document.getElementById('btn-rec').disabled = false;
+        } catch (e) {
+          document.getElementById('cam-status').textContent = 'DENIED';
+        }
+      }
+
+      function updateCam() {
+        if (!cam.active || video.readyState < 2 || video.currentTime === cam.lastT) return;
+        cam.lastT = video.currentTime;
+
+        const pw = procCanvas.width, ph = procCanvas.height;
+        procCtx.save(); procCtx.translate(pw, 0); procCtx.scale(-1, 1);
+        procCtx.drawImage(video, 0, 0, pw, ph); procCtx.restore();
+
+        const data = procCtx.getImageData(0, 0, pw, ph).data;
+        let sSum = 0, sxSum = 0, sySum = 0;
+        for (let y = 4; y < ph - 6; y += 2) {
+          for (let x = 10; x < pw - 10; x += 2) {
+            const i = (y * pw + x) * 4;
+            const r = data[i], g = data[i+1], b = data[i+2];
+            const Y = 0.299 * r + 0.587 * g + 0.114 * b;
+            const Cb = 128 - 0.1687 * r - 0.3313 * g + 0.5 * b;
+            const Cr = 128 + 0.5 * r - 0.4187 * g - 0.0813 * b;
+            if (Y > 40 && Cb >= 75 && Cb <= 134 && Cr >= 131 && Cr <= 177 && r > b) {
+              const nx = x / pw, ny = y / ph;
+              const d = Math.hypot(nx - cam.sx, ny - cam.sy);
+              const w = (ny < 0.72 ? 1.5 : 0.7) * (cam.warmup > 0 ? 1 : Math.exp(-d * d * 8));
+              sSum += w; sxSum += nx * w; sySum += ny * w;
+            }
+          }
+        }
+        if (sSum > 10) {
+          const tx = sxSum / sSum, ty = sySum / sSum;
+          if (cam.warmup > 0) {
+            cam.warmup--;
+            cam.sx = cam.cx = tx; cam.sy = cam.cy = ty;
+          } else {
+            cam.sx += (tx - cam.sx) * 0.35;
+            cam.sy += (ty - cam.sy) * 0.35;
+          }
+        }
+
+        let dx = (cam.cx - cam.sx) * 7.8;
+        let dy = (cam.cy - cam.sy) * 8.5;
+        cam.steerX = Math.max(-1, Math.min(1, Math.abs(dx) < 0.03 ? 0 : dx));
+        cam.steerY = Math.max(-1, Math.min(1, Math.abs(dy) < 0.03 ? 0 : dy));
+
+        const w = pipCanvas.width, h = pipCanvas.height;
+        pipCtx.save(); pipCtx.translate(w, 0); pipCtx.scale(-1, 1);
+        pipCtx.drawImage(video, 0, 0, w, h); pipCtx.restore();
+        pipCtx.strokeStyle = 'rgba(0,240,255,0.55)'; pipCtx.lineWidth = 1.5;
+        pipCtx.beginPath(); pipCtx.arc(cam.cx * w, cam.cy * h, 13, 0, Math.PI * 2); pipCtx.stroke();
+        pipCtx.strokeStyle = '#00f59b'; pipCtx.lineWidth = 2.5;
+        pipCtx.beginPath(); pipCtx.arc(cam.sx * w, cam.sy * h, 9, 0, Math.PI * 2); pipCtx.stroke();
+      }
+
+      /* 3D Canvas Engine */
+      const canvas

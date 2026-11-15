@@ -1,0 +1,178 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+.font-display {
+  font-family: "Chakra Petch", "Plus Jakarta Sans", sans-serif;
+}
+
+.font-mono-telemetry {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes floatUpFade {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -20%) scale(0.85);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -55%) scale(1.04);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -140%) scale(0.96);
+  }
+}
+
+.animate-float-up {
+  animation: floatUpFade 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes triumphBanner {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -40%) scale(0.65);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(-50%, 0%) scale(1.06);
+  }
+  22% {
+    transform: translate(-50%, 0%) scale(1);
+  }
+  84% {
+    opacity: 1;
+    transform: translate(-50%, 0%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -18%) scale(0.94);
+  }
+}
+
+@keyframes triumphAura {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  15%,
+  75% {
+    opacity: 0.92;
+  }
+  45% {
+    opacity: 1;
+  }
+}
+
+@keyframes spinOrbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spinOrbitRev {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes triumphStreak {
+  0% {
+    opacity: 0;
+    transform: translateX(-110%) skewX(-24deg);
+  }
+  20% {
+    opacity: 0.85;
+  }
+  80% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(210%) skewX(-24deg);
+  }
+}
+
+.animate-triumph-banner {
+  animation: triumphBanner 4.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-triumph-aura {
+  animation: triumphAura 4.2s ease-in-out forwards;
+  will-change: opacity;
+}
+
+.animate-spin-orbit {
+  animation: spinOrbit 3.6s linear infinite;
+  will-change: transform;
+}
+
+.animate-spin-orbit-rev {
+  animation: spinOrbitRev 2.4s linear infinite;
+  will-change: transform;
+}
+
+.animate-triumph-streak {
+  animation: triumphStreak 1.35s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes bossIntroBanner {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -22%) scale(0.86);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, 0%) scale(1.03);
+  }
+  30%,
+  85% {
+    opacity: 1;
+    transform: translate(-50%, 0%) scale(1);
+  }
+  100% {
+    opacity: 0.96;
+    transform: translate(-50%, 0%) scale(1);
+  }
+}
+
+.animate-boss-intro {
+  animation: bossIntroBanner 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float-up {
+    animation-duration: 0.15s;
+  }
+  .animate-spin-orbit,
+  .animate-spin-orbit-rev,
+  .animate-triumph-streak,
+  .animate-boss-intro {
+    animation: none;
+  }
+}

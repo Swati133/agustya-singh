@@ -1,0 +1,10 @@
+{
+  "name": "NeuroMove AI 3D",
+  "description": "Offline 3D neuro-rehabilitation flight simulator and boss battle with mirrored webcam head tracking and clinical range-of-motion telemetry.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
